@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package marketdata.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/w1xent/agregator/gen/marketdata/v1;marketdatav1";
+
+// MarketDataService streams normalized market data that is collected
+// from several crypto exchanges.
+service MarketDataService {
+  // ListInstruments returns the exchanges and symbols with fresh data.
+  rpc ListInstruments(ListInstrumentsRequest) returns (ListInstrumentsResponse);
+
+  // StreamOrderBooks first sends the latest known book for every matching
+  // instrument and then sends every new update.
+  rpc StreamOrderBooks(StreamOrderBooksRequest) returns (stream OrderBook);
+
+  // StreamSpreads first sends the latest known spreads and then sends every
+  // new spread between each pair of exchanges.
+  rpc StreamSpreads(StreamSpreadsRequest) returns (stream Spread);
+}
+
+message ListInstrumentsRequest {}
+
+message ListInstrumentsResponse {
+  repeated string exchanges = 1;
+  repeated string symbols = 2;
+}
+
+message PriceLevel {
+  double price = 1;
+  double size = 2;
+}
+
+message OrderBook {
+  string exchange = 1;
+  // Normalized symbol, for example "BTC-USDT".
+  string symbol = 2;
+  // Best (highest) bid first.
+  repeated PriceLevel bids = 3;
+  // Best (lowest) ask first.
+  repeated PriceLevel asks = 4;
+  // Time of the update on the exchange side.
+  google.protobuf.Timestamp exchange_time = 5;
+  // Time when the collector received the update from the exchange.
+  google.protobuf.Timestamp received_time = 6;
+  // Time when the aggregator sent the update to gRPC clients.
+  google.protobuf.Timestamp published_time = 7;
+  // Exchange sequence number (0 if the exchange does not send one).
+  int64 sequence = 8;
+}
+
+message StreamOrderBooksRequest {
+  // Empty list means all symbols.
+  repeated string symbols = 1;
+  // Empty list means all exchanges.
+  repeated string exchanges = 2;
+  // Number of levels per side. 0 means all levels the server has.
+  uint32 depth = 3;
+}
+
+// Spread describes the result of buying on one exchange (at its best ask)
+// and selling on another exchange (at its best bid) at the same moment.
+message Spread {
+  string symbol = 1;
+  string buy_exchange = 2;
+  string sell_exchange = 3;
+  // Best ask on buy_exchange.
+  double buy_price = 4;
+  // Best bid on sell_exchange.
+  double sell_price = 5;
+  // sell_price - buy_price. Positive value means an arbitrage window.
+  double spread = 6;
+  // Spread in basis points relative to buy_price (1 bps = 0.01%).
+  double spread_bps = 7;
+  // Volume available at the top level: min(ask size, bid size).
+  double volume = 8;
+  // The newest exchange time of the two books.
+  google.protobuf.Timestamp time = 9;
+  google.protobuf.Timestamp published_time = 10;
+}
+
+message StreamSpreadsRequest {
+  // Empty list means all symbols.
+  repeated string symbols = 1;
+  // If set, only spreads with spread_bps >= min_bps are sent.
+  optional double min_bps = 2;
+}

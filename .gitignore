@@ -1,0 +1,14 @@
+# Binaries and tools
+/bin/
+
+# Test and profiling output
+*.out
+*.prof
+*.test
+coverage.*
+
+# Local environment
+.env
+.idea/
+.vscode/
+.DS_Store
